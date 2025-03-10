@@ -13,9 +13,13 @@ from bottle import (
     template,
 )
 
+
 def i18n_defaults(template, request):
-    template.defaults['_'] = lambda msgid, options=None: request.app._(msgid) % options if options else request.app._(msgid)
-    template.defaults['lang'] = lambda: request.app.lang
+    template.defaults["_"] = lambda msgid, options=None: (
+        request.app._(msgid) % options if options else request.app._(msgid)
+    )
+    template.defaults["lang"] = lambda: request.app.lang
+
 
 def i18n_template(*args, **kwargs):
     tpl = args[0] if args else None
@@ -25,6 +29,7 @@ def i18n_template(*args, **kwargs):
     eles[0] = tpl
     args = tuple(eles)
     return template(*args, **kwargs)
+
 
 def i18n_view(tmpl, **defaults):
     def decorator(func):
@@ -39,7 +44,9 @@ def i18n_view(tmpl, **defaults):
             elif result is None:
                 return template(file, defaults)
             return result
+
         return wrapper
+
     return decorator
 
 
@@ -51,7 +58,7 @@ class I18NMiddleware(object):
 
     @property
     def http_accept_language(self):
-        return self.header.get('HTTP_ACCEPT_LANGUAGE')
+        return self.header.get("HTTP_ACCEPT_LANGUAGE")
 
     @property
     def app(self):
@@ -94,27 +101,26 @@ class I18NMiddleware(object):
 
         if sub_app:
             for route in self.app.routes:
-                if route.config.get('mountpoint'):
-                    route.config.get('mountpoint').get('target').install(i18n)
+                if route.config.get("mountpoint"):
+                    route.config.get("mountpoint").get("target").install(i18n)
 
     def __call__(self, environ, start_response):
-        self._http_language = environ.get('HTTP_ACCEPT_LANGUAGE')
+        self._http_language = environ.get("HTTP_ACCEPT_LANGUAGE")
         self._header = environ
-        locale = environ['PATH_INFO'].split('/')[1]
-        for i18n in [plugin for plugin in self.app.plugins if plugin.name == 'i18n']:
+        locale = environ["PATH_INFO"].split("/")[1]
+        for i18n in [plugin for plugin in self.app.plugins if plugin.name == "i18n"]:
             if locale in i18n.locales:
                 self.app.lang = locale
-                environ['PATH_INFO'] = environ['PATH_INFO'][len(locale)+1:]
+                environ["PATH_INFO"] = environ["PATH_INFO"][len(locale) + 1 :]
             else:
                 self.app.lang = i18n._default
-                if self.is_explicit_redirect and \
-                        locale not in self.static_routes:
+                if self.is_explicit_redirect and locale not in self.static_routes:
                     query = environ["QUERY_STRING"]
-                    _query = "?"+query if query else query
+                    _query = "?" + query if query else query
                     _url = "/{0}{1}{2}".format(
-                        i18n.get_lang(), environ['PATH_INFO'], _query)
-                    start_response('302 Found', [('Location', _url)],
-                        sys.exc_info())
+                        i18n.get_lang(), environ["PATH_INFO"], _query
+                    )
+                    start_response("302 Found", [("Location", _url)], sys.exc_info())
                     return []
 
         if self.translators:
@@ -128,7 +134,7 @@ Middleware = I18NMiddleware
 
 
 class I18NPlugin(object):
-    name = 'i18n'
+    name = "i18n"
     api = 2
 
     @property
@@ -151,10 +157,12 @@ class I18NPlugin(object):
     def local_dir(self):
         return self._locale_dir
 
-    def __init__(self, domain, locale_dir, lang_code=None, default='en', keyword='i18n'):
+    def __init__(
+        self, domain, locale_dir, lang_code=None, default="en", keyword="i18n"
+    ):
         self.domain = domain
         if locale_dir is None:
-            raise PluginError('No locale directory found, please assign a right one.')
+            raise PluginError("No locale directory found, please assign a right one.")
         self._locale_dir = locale_dir
 
         self._locales = self._get_languages(self._locale_dir)
@@ -166,20 +174,27 @@ class I18NPlugin(object):
         self._keyword = keyword
 
     def _get_languages(self, directory):
-        return [dir for dir in os.listdir(self._locale_dir) if os.path.isdir(os.path.join(directory, dir))]
+        return [
+            dir
+            for dir in os.listdir(self._locale_dir)
+            if os.path.isdir(os.path.join(directory, dir))
+        ]
 
     def setup(self, app):
         self._apps.append(app)
         for app in self._apps:
             app._ = lambda s: s
 
-            if hasattr(app, 'add_hook'):
+            if hasattr(app, "add_hook"):
                 # attribute hooks was renamed to _hooks in version 0.12.x and add_hook method was introduced instead.
-                app.add_hook('before_request', self.prepare)
+                app.add_hook("before_request", self.prepare)
             else:
-                app.hooks.add('before_request', self.prepare)
+                app.hooks.add("before_request", self.prepare)
 
-            app.__class__.lang = property(fget=lambda x: self.get_lang(), fset=lambda x, value: self.set_lang(value))
+            app.__class__.lang = property(
+                fget=lambda x: self.get_lang(),
+                fset=lambda x, value: self.set_lang(value),
+            )
 
     def parse_accept_language(self, accept_language):
         if accept_language == None:
@@ -199,10 +214,12 @@ class I18NPlugin(object):
         return locale_q_pairs
 
     def detect_locale(self):
-        locale_q_pairs = self.parse_accept_language(self.middleware.http_accept_language)
+        locale_q_pairs = self.parse_accept_language(
+            self.middleware.http_accept_language
+        )
         for pair in locale_q_pairs:
             for locale in self._locales:
-                if pair[0].replace('-', '_').lower().startswith(locale.lower()):
+                if pair[0].replace("-", "_").lower().startswith(locale.lower()):
                     return locale
 
         return self._default
@@ -230,7 +247,8 @@ class I18NPlugin(object):
 
     def install_underscore(self):
         import __builtin__
-        __builtin__.__dict__['_'] = self.bytestring_decoded_gettext
+
+        __builtin__.__dict__["_"] = self.bytestring_decoded_gettext
 
     def prepare(self, *args, **kwargs):
         if self._lang_code is None:
@@ -247,7 +265,9 @@ class I18NPlugin(object):
                     app._ = lambda s: s
             return
         try:
-            self.trans = gettext.translation(self.domain, self._locale_dir, languages=[self._lang_code])
+            self.trans = gettext.translation(
+                self.domain, self._locale_dir, languages=[self._lang_code]
+            )
             self.install_underscore()
             for app in self._apps:
                 app._ = self.bytestring_decoded_gettext
@@ -265,4 +285,3 @@ Plugin = I18NPlugin
 
 ### EOF ###
 ## vim:smarttab:sts=4:sw=4:et:ai:tw=80:
-
