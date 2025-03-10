@@ -183,7 +183,7 @@ class I18NPlugin(object):
     def setup(self, app):
         self._apps.append(app)
         for app in self._apps:
-            app._ = lambda s: s
+            self._install_app_underscore(app, lambda s: s)
 
             if hasattr(app, "add_hook"):
                 # attribute hooks was renamed to _hooks in version 0.12.x and add_hook method was introduced instead.
@@ -250,6 +250,15 @@ class I18NPlugin(object):
 
         builtins.__dict__["_"] = self.bytestring_decoded_gettext
 
+    @staticmethod
+    def _install_app_underscore(app, fun=None):
+        try:
+            delattr(app, "_")
+        except AttributeError:
+            pass
+        if fun:
+            setattr(app, "_", fun)
+
     def prepare(self, *args, **kwargs):
         if self._lang_code is None:
             self._lang_code = self.detect_locale()
@@ -259,10 +268,10 @@ class I18NPlugin(object):
             if self.trans:
                 self.install_underscore()
                 for app in self._apps:
-                    app._ = self.bytestring_decoded_gettext
+                    self._install_app_underscore(app, self.bytestring_decoded_gettext)
             else:
                 for app in self._apps:
-                    app._ = lambda s: s
+                    self._install_app_underscore(app, lambda s: s)
             return
         try:
             self.trans = gettext.translation(
@@ -270,11 +279,11 @@ class I18NPlugin(object):
             )
             self.install_underscore()
             for app in self._apps:
-                app._ = self.bytestring_decoded_gettext
+                self._install_app_underscore(app, self.bytestring_decoded_gettext)
             self._cache[self._lang_code] = self.trans
         except Exception as e:
             for app in self._apps:
-                app._ = lambda s: s
+                self._install_app_underscore(app, lambda s: s)
             self._cache[self._lang_code] = None
 
     def apply(self, callback, route):
