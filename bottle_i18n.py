@@ -246,9 +246,9 @@ class I18NPlugin(object):
                 return _value
 
     def install_underscore(self):
-        import __builtin__
+        import builtins
 
-        __builtin__.__dict__["_"] = self.bytestring_decoded_gettext
+        builtins.__dict__["_"] = self.bytestring_decoded_gettext
 
     def prepare(self, *args, **kwargs):
         if self._lang_code is None:
