@@ -252,7 +252,7 @@ class I18NPlugin(object):
             for app in self._apps:
                 app._ = self.bytestring_decoded_gettext
             self._cache[self._lang_code] = self.trans
-        except Exception, e:
+        except Exception as e:
             for app in self._apps:
                 app._ = lambda s: s
             self._cache[self._lang_code] = None
